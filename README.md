@@ -5,14 +5,10 @@ A cross-platform CLI tool to check and update your Python installation to the la
 ## ⚡ Quick Start (3 Steps)
 
 ```bash
-# 1. Clone from GitHub
-git clone https://github.com/shreyasmene06/pyvm-updater.git
-cd pyvm-updater
+# 1. Install the package
+pip install --user pyvm-updater
 
-# 2. Install
-pip install --user .
-
-# 3. Use it!
+# 2. Use it!
 pyvm check      # Check your Python version
 pyvm update     # Update to latest Python
 ```
