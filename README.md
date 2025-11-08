@@ -28,6 +28,9 @@ That's it! 🎉
 - 🖥️ Cross-platform support (Windows, Linux, macOS)
 - 📊 Detailed system information display
 - 🚀 Simple and intuitive CLI interface
+- 🎯 **NEW:** Automatically set Python as system default (Linux)
+- 🔧 **NEW:** Manage multiple Python versions with ease
+- ⚡ **NEW:** One-command setup with `--set-default` flag
 
 ## 🚀 Quick Start for New Users
 
@@ -189,6 +192,33 @@ For automatic update without confirmation:
 ```bash
 pyvm update --auto
 ```
+
+**NEW:** Automatically set as system default (Linux only):
+
+```bash
+pyvm update --set-default
+```
+
+Or combine both flags:
+
+```bash
+pyvm update --auto --set-default
+```
+
+### Set Python as Default (Linux)
+
+**NEW:** Set an existing Python version as system default:
+
+```bash
+# List available Python versions
+pyvm set-default
+
+# Set a specific version as default
+pyvm set-default 3.12
+pyvm set-default 3.14
+```
+
+This command automatically configures `update-alternatives` to make the specified Python version your system default. No more manual configuration needed!
 
 ### After Updating - How to Use the New Python
 
@@ -367,6 +397,10 @@ py --list
 | `pyvm check` | Check Python version |
 | `pyvm update` | Update Python to latest version |
 | `pyvm update --auto` | Update without confirmation |
+| `pyvm update --set-default` | Update and set as system default (Linux) |
+| `pyvm update --auto --set-default` | Fully automated update and setup (Linux) |
+| `pyvm set-default` | List available Python versions (Linux) |
+| `pyvm set-default 3.12` | Set Python 3.12 as system default (Linux) |
 | `pyvm info` | Show system information |
 | `pyvm --version` | Show tool version |
 | `pyvm --help` | Show help message |

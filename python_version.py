@@ -295,7 +295,8 @@ def update_python_linux(version_str: str) -> bool:
             ["sudo", "apt", "install", "-y", "software-properties-common"],
             ["sudo", "add-apt-repository", "-y", "ppa:deadsnakes/ppa"],
             ["sudo", "apt", "update"],
-            ["sudo", "apt", "install", "-y", f"python{major_minor}"]
+            ["sudo", "apt", "install", "-y", f"python{major_minor}"],
+            ["sudo", "apt", "install", "-y", f"python{major_minor}-venv", f"python{major_minor}-distutils"]
         ]
         
         for cmd in commands:
@@ -312,6 +313,13 @@ def update_python_linux(version_str: str) -> bool:
                 print(f"Error running command: {e}")
                 return False
         
+        # Verify installation
+        python_path = f"/usr/bin/python{major_minor}"
+        if not os.path.exists(python_path):
+            print(f"⚠️  Warning: {python_path} not found after installation")
+            return False
+        
+        print(f"\n✅ Python {major_minor} installed successfully at {python_path}")
         return True
     
     elif shutil.which('yum') or shutil.which('dnf'):
@@ -481,20 +489,86 @@ def _set_python_default_linux(major_minor: str):
     click.echo(f"\n🔧 Setting Python {major_minor} as system default...")
     click.echo("\nThis requires sudo privileges.")
     
-    commands = [
-        f"sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1",
-        f"sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python{major_minor} 2",
-        f"sudo update-alternatives --config python3"
-    ]
+    python_new_path = f"/usr/bin/python{major_minor}"
     
-    click.echo("\nRun these commands:")
+    # Verify the new Python exists
+    if not os.path.exists(python_new_path):
+        click.echo(f"❌ Error: {python_new_path} not found!")
+        click.echo("Cannot set as default. Please check the installation.")
+        return
+    
+    # Get current python3 path to register both versions
+    try:
+        result = subprocess.run(
+            ["readlink", "-f", "/usr/bin/python3"],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        current_python3_path = result.stdout.strip() if result.returncode == 0 else None
+    except Exception:
+        current_python3_path = None
+    
+    # Prepare commands
+    commands = []
+    
+    # Register current version with priority 1 (if it exists and is different)
+    if current_python3_path and os.path.exists(current_python3_path) and current_python3_path != python_new_path:
+        try:
+            # Extract version from path (e.g., python3.10 -> 3.10)
+            current_match = re.search(r'python(\d+\.\d+)', current_python3_path)
+            if current_match:
+                current_ver = current_match.group(1)
+                commands.append(["sudo", "update-alternatives", "--install", "/usr/bin/python3", "python3", current_python3_path, "1"])
+        except Exception:
+            pass
+    
+    # Register new version with priority 2 (higher priority)
+    commands.append(["sudo", "update-alternatives", "--install", "/usr/bin/python3", "python3", python_new_path, "2"])
+    
+    # Set the new version as default
+    commands.append(["sudo", "update-alternatives", "--set", "python3", python_new_path])
+    
+    click.echo("\n📋 Executing configuration commands...")
     click.echo("-" * 60)
+    
     for cmd in commands:
-        click.echo(f"  {cmd}")
+        click.echo(f"Running: {' '.join(cmd)}")
+        try:
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+            if result.returncode != 0:
+                click.echo(f"⚠️  Warning: Command failed with exit code {result.returncode}")
+                if result.stderr:
+                    click.echo(f"    {result.stderr.strip()}")
+            else:
+                click.echo(f"✅ Success")
+        except Exception as e:
+            click.echo(f"❌ Error running command: {e}")
+            click.echo("\n⚠️  Failed to set as default automatically.")
+            click.echo("You can do it manually with these commands:")
+            for manual_cmd in commands:
+                click.echo(f"  {' '.join(manual_cmd)}")
+            return
+    
     click.echo("-" * 60)
     
-    click.echo("\n📝 When prompted, select the number for Python " + major_minor)
-    click.echo("\n✅ After running these commands, 'python3 --version' will show " + major_minor)
+    # Verify the change
+    try:
+        result = subprocess.run(
+            ["python3", "--version"],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        if result.returncode == 0:
+            click.echo(f"\n✅ Success! Current python3 version: {result.stdout.strip()}")
+        else:
+            click.echo(f"\n⚠️  Could not verify python3 version")
+    except Exception as e:
+        click.echo(f"\n⚠️  Could not verify installation: {e}")
+    
+    click.echo("\n💡 Tip: Run 'python3 --version' to verify")
+    click.echo("⚠️  Remember to restart your terminal for changes to take effect!")
 
 
 def _show_access_instructions(version_str: str, major_minor: str, os_name: str):
@@ -542,7 +616,7 @@ def _show_access_instructions(version_str: str, major_minor: str, os_name: str):
 def cli(ctx, version):
     """Python Version Manager - Check and update Python across platforms"""
     if version:
-        click.echo("Python Version Manager v1.0.0")
+        click.echo("Python Version Manager v1.2.0")
         ctx.exit()
     
     if ctx.invoked_subcommand is None:
@@ -569,7 +643,8 @@ def check():
 
 @cli.command()
 @click.option('--auto', is_flag=True, help='Automatically proceed without confirmation')
-def update(auto):
+@click.option('--set-default', is_flag=True, help='Automatically set the new Python as system default (Linux only)')
+def update(auto, set_default):
     """Download and install the latest Python version"""
     try:
         click.echo("🔍 Checking for updates...")
@@ -613,8 +688,15 @@ def update(auto):
         if success:
             click.echo("\n✅ Update process completed!")
             
-            # Prompt user about setting as default
-            prompt_set_as_default(latest_ver, os_name, auto)
+            # Handle setting as default based on flag
+            if set_default and os_name == 'linux':
+                # Extract major.minor version
+                parts = latest_ver.split('.')
+                major_minor = f"{parts[0]}.{parts[1]}"
+                _set_python_default_linux(major_minor)
+            else:
+                # Prompt user about setting as default
+                prompt_set_as_default(latest_ver, os_name, auto)
         else:
             click.echo("\n⚠️  Update process encountered issues.")
             click.echo("    Please check the messages above.")
@@ -625,6 +707,96 @@ def update(auto):
         sys.exit(130)
     except Exception as e:
         click.echo(f"\n❌ Error: {e}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument('version', required=False)
+def set_default(version):
+    """Set a specific Python version as system default (Linux only)
+    
+    Examples:
+        pyvm set-default 3.12
+        pyvm set-default 3.11
+    
+    If no version is specified, will list available Python versions.
+    """
+    try:
+        os_name, _ = get_os_info()
+        
+        if os_name != 'linux':
+            click.echo(f"❌ This command is only supported on Linux.")
+            click.echo(f"   Your OS: {os_name}")
+            sys.exit(1)
+        
+        # If no version specified, list available versions
+        if not version:
+            click.echo("🔍 Available Python versions on your system:")
+            click.echo("-" * 60)
+            
+            # Find all python3.x binaries
+            python_versions = []
+            for path in ['/usr/bin', '/usr/local/bin']:
+                if os.path.exists(path):
+                    for file in os.listdir(path):
+                        if re.match(r'^python3\.\d+$', file):
+                            full_path = os.path.join(path, file)
+                            if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+                                # Extract version
+                                match = re.search(r'python(3\.\d+)', file)
+                                if match and match.group(1) not in [v[0] for v in python_versions]:
+                                    python_versions.append((match.group(1), full_path))
+            
+            if python_versions:
+                python_versions.sort(reverse=True)
+                for ver, path in python_versions:
+                    # Check if it's current default
+                    try:
+                        result = subprocess.run(
+                            ["python3", "--version"],
+                            capture_output=True,
+                            text=True,
+                            check=False
+                        )
+                        current_default = ""
+                        if result.returncode == 0 and ver in result.stdout:
+                            current_default = " ← current default"
+                    except Exception:
+                        current_default = ""
+                    
+                    click.echo(f"  Python {ver:6s} at {path}{current_default}")
+                
+                click.echo("-" * 60)
+                click.echo("\n💡 Usage: pyvm set-default <version>")
+                click.echo("   Example: pyvm set-default 3.12")
+            else:
+                click.echo("  No Python 3.x versions found in /usr/bin or /usr/local/bin")
+            
+            sys.exit(0)
+        
+        # Validate and normalize version format
+        if not version.startswith('3.'):
+            version = f"3.{version}"
+        
+        # Check if version exists
+        python_path = f"/usr/bin/python{version}"
+        if not os.path.exists(python_path):
+            # Try /usr/local/bin
+            python_path = f"/usr/local/bin/python{version}"
+            if not os.path.exists(python_path):
+                click.echo(f"❌ Python {version} not found!")
+                click.echo(f"   Expected at: /usr/bin/python{version}")
+                click.echo("\n💡 Run 'pyvm set-default' without arguments to see available versions.")
+                sys.exit(1)
+        
+        # Set as default
+        _set_python_default_linux(version)
+        
+    except KeyboardInterrupt:
+        click.echo("\n\nOperation cancelled by user.")
+        sys.exit(130)
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
         sys.exit(1)
 
 
@@ -644,6 +816,21 @@ def info():
         click.echo(f"Platform:         {platform.platform()}")
         
         click.echo(f"\nAdmin/Sudo:       {'Yes' if is_admin() else 'No'}")
+        
+        # Show python3 command location if different
+        try:
+            result = subprocess.run(
+                ["which", "python3"],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            if result.returncode == 0:
+                python3_path = result.stdout.strip()
+                if python3_path != sys.executable:
+                    click.echo(f"python3 command:  {python3_path}")
+        except Exception:
+            pass
         
         click.echo("=" * 50)
         
