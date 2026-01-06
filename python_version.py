@@ -228,7 +228,21 @@ def update_python_windows(version_str: str) -> bool:
     if machine in ['amd64', 'x86_64']:
         arch = 'amd64'
     elif machine in ['arm64', 'aarch64']:
-        arch = 'arm64'
+        # ARM64 Windows installers are only available for Python 3.11+
+        # Fall back to AMD64 for older versions
+        try:
+            major_int = int(major)
+            minor_int = int(minor)
+            if major_int < 3 or (major_int == 3 and minor_int < 11):
+                print("ARM64 installers are only available for Python 3.11+")
+                print("Falling back to AMD64 installer for Python {version_str}")
+                arch = 'amd64'
+            else:
+                arch = 'arm64'
+        except (ValueError, TypeError):
+            # default to AMD64 for safety
+            print("Could not parse version, falling back to AMD64")
+            arch = 'amd64'
     else:
         arch = 'win32'
     installer_url = f"https://www.python.org/ftp/python/{version_str}/python-{version_str}-{arch}.exe"
