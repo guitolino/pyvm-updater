@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-01-10 🎨 MAJOR TUI REDESIGN
+
+### Added
+- **Interactive TUI**: Complete redesign with navigable panels
+  - Tab/Shift+Tab navigation between Installed, Available, and Status panels
+  - Arrow key navigation within panels
+  - Press Enter on Available panel to install selected version
+  - Mouse click support for all interactions
+- **mise Integration**: First-class support for mise version manager
+  - Auto-detects mise-installed Python versions
+  - Uses mise for installation on Linux/macOS when available
+- **pyenv Integration**: First-class support for pyenv
+  - Auto-detects pyenv-installed Python versions
+  - Uses pyenv as fallback installation method
+- **Improved Version Detection**: Scans mise, pyenv, and system directories
+- **Terminal Suspension**: App suspends during installation to show progress
+  - Cross-platform support (Linux, macOS, Windows)
+  - Fallback for unsupported environments
+
+### Changed
+- **BREAKING**: Removed confusing modal input dialog
+- **Installation Flow**: Now uses mise → pyenv → package manager chain
+  - Linux: mise → pyenv → apt (deadsnakes) → dnf/yum
+  - macOS: mise → pyenv → Homebrew → manual installer
+  - Windows: Official python.org installer (unchanged)
+- **TUI Layout**: Three-panel design (Installed | Available | Status)
+- **Panel Navigation**: Focused panel is highlighted for clarity
+- **Update Button**: Fixed to always work, not just when outdated
+- **Status Display**: Shows current Python, latest available, and update status
+
+### Improved
+- Better keyboard-driven workflow for power users
+- Clearer visual feedback with panel highlighting
+- More robust installation with multiple fallback options
+- Cross-platform consistency across Linux, macOS, and Windows
+
+### Technical
+- Refactored TUI to use ListView widgets for better keyboard support
+- Added comprehensive error handling for suspend operations
+- Improved version detection to scan multiple installation directories
+- Better cross-platform path handling
+
 ## [1.2.1] - 2025-11-30 🚨 CRITICAL SECURITY FIX
 
 ### 🚨 BREAKING CHANGES

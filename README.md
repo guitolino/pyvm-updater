@@ -1,12 +1,25 @@
 # Python Version Manager (pyvm)
 
-A cross-platform CLI tool to check and install the latest Python version side-by-side with your existing Python installation.
+A cross-platform CLI tool with an interactive TUI to check and install Python versions side-by-side with your existing installation.
+
+## What's New in v2.0.0
+
+**Complete TUI Redesign!** The interactive terminal interface has been completely overhauled:
+
+* **Navigate with Tab/Arrows**: Switch between panels with Tab, navigate lists with arrow keys
+* **Press Enter to Install**: Select a version and hit Enter, no typing required
+* **See Everything**: View installed versions, available releases, and status in one screen
+* **Smart Installation**: Auto-uses mise to pyenv to package managers for seamless installs
+* **Mouse Support**: Click anywhere to select and install
+* **Cross-Platform**: Works flawlessly on Linux, macOS, and Windows
+
+Try it: `pyvm tui`
 
 ## CRITICAL UPDATE (v1.2.1)
 
 **If you are using v1.2.0 or earlier:** Please update immediately.
 
-Previous versions contained system-breaking code that could freeze Linux systems. **v1.2.1 is completely safe** and only installs Python without modifying system defaults.
+Previous versions contained system-breaking code that could freeze Linux systems. **v1.2.1+ is completely safe** and only installs Python without modifying system defaults.
 
 ```bash
 # Update to the safe version
@@ -28,18 +41,32 @@ pip install --user pyvm-updater
 # Use it
 pyvm check      # Check your Python version
 pyvm update     # Update to latest Python
+pyvm tui        # Launch interactive TUI (NEW!)
 ```
 
 ## Features
 
+### Interactive TUI (New in v2.0!)
+* Beautiful Terminal Interface: Navigate with keyboard or mouse
+* Three-Panel Layout: See installed versions, available releases, and status at a glance
+* Keyboard Navigation: Tab between panels, arrows to navigate, Enter to install
+* Click to Install: Mouse support for all actions
+* Live Updates: See installation progress in real-time
+* Theme Support: Switch between dark and light themes (press T)
+
+### CLI Features
 * Check your current Python version against the latest stable release
-* Install the latest Python side-by-side with your existing version
+* Install the latest Python or specific versions side-by-side
+* List all available Python versions with support status
 * Cross-platform support (Windows, Linux, macOS)
 * Detailed system information display
 * Simple and intuitive CLI interface
+
+### Safety & Intelligence
 * Safe: Never modifies your system Python defaults
-* Multiple Python versions coexist peacefully
-* Clear instructions on how to use the new version
+* Smart Installation: Auto-detects and uses mise, pyenv, or system package managers
+* Multiple Versions: All Python versions coexist peacefully
+* Clear Instructions: Shows exactly how to use newly installed versions
 
 ## Installation
 
@@ -88,6 +115,16 @@ source ~/.bashrc   # or source ~/.zshrc
 pyvm --version
 pyvm check
 ```
+**For TUI mode (optional but recommended):**
+```bash
+pip install --user "pyvm-updater[tui]"
+```
+
+Or install textual separately:
+```bash
+pip install --user textual
+```
+
 
 All dependencies are automatically installed.
 
@@ -131,7 +168,74 @@ Anaconda manages its own Python installation separately from system Python. This
 
 **For detailed installation instructions, see [INSTALL.md](docs/INSTALL.md)**
 
-## 📖 Usage
+## Usage
+
+### Interactive TUI Mode (Recommended)
+
+Launch the terminal interface:
+
+```bash
+pyvm tui
+```
+
+**Navigation:**
+* **Tab / Shift+Tab**: Switch between panels (Installed, Available, Status)
+* **Arrow Keys**: Navigate within a panel
+* **Enter**: Install the selected version from the Available panel
+* **1 / 2**: Quick jump to Installed or Available panel
+* **U**: Update to the latest Python version
+* **R**: Refresh data
+* **T**: Toggle theme (dark/light)
+* **?**: Show help
+* **Q**: Quit
+
+**Panels:**
+1. **INSTALLED**: Shows all Python versions detected on your system (current version is marked, shows installation paths)
+2. **AVAILABLE**: Lists all active Python releases from python.org (latest version shown first, status indicators, press Enter to install)
+3. **STATUS**: Shows current Python, latest available, and update status
+
+### List Available Versions
+
+See all Python versions you can install:
+
+```bash
+# Show active release series (3.9+, security updates, etc.)
+pyvm list
+
+# Show all versions including patch releases
+pyvm list --all
+```
+
+Output example:
+```
+Available Python Versions:
+==========================
+3.15.x   * pre-release
+3.14.0   * bugfix (active development)
+3.13.1   * bugfix (active development)
+3.12.8   * security (supported until 2028)
+3.11.11  * security (supported until 2027)
+3.10.16  * security (supported until 2026)
+3.9.21   * end of life
+```
+
+### Install Specific Version
+
+Install any Python version:
+
+```bash
+pyvm install 3.12.8
+pyvm install 3.11.5
+pyvm install 3.13.1
+
+# Auto-confirm installation
+pyvm install 3.12.8 *y
+```
+
+The installer will:
+* On Linux/macOS: Try mise to pyenv to system package manager
+* On Windows: Download official installer from python.org
+* Install side-by-side without touching your system Python
 
 ### Check Python version
 
@@ -148,13 +252,13 @@ Output example:
 Checking Python version... (Current: 3.12.3)
 
 ========================================
-⚠ A new version (3.14.0) is available!
+A new version (3.14.0) is available!
 
 Current version:   3.12.3
 Latest version:    3.14.0
 ========================================
 
-💡 Tip: Run 'pyvm update' to upgrade Python
+Tip: Run 'pyvm update' to upgrade Python
 ```
 
 ### Update Python
@@ -234,44 +338,90 @@ Architecture:     amd64
 Python Version:   3.12.3
 Python Path:      /usr/bin/python3
 Platform:         Linux-5.15.0-generic-x86_64
+# How It Works
 
-Admin/Sudo:       No
-==================================================
-```
+### Smart Installation Strategy
 
-### Show tool version
+pyvm uses an intelligent fallback chain to install Python:
 
-```bash
-pyvm --version
-```
+**Linux:**
+1. **mise** (if available) * Modern, user-friendly version manager
+2. **pyenv** (if available) * Popular Python version manager
+3. **apt** with deadsnakes PPA (Ubuntu/Debian)
+4. **dnf/yum** (Fedora/RHEL)
 
----
+**macOS:**
+1. **mise** (if available) * Modern, user-friendly version manager
+2. **pyenv** (if available) * Popular Python version manager
+3. **Homebrew** (most common)
+4. Official installer link (fallback)
 
-## Using Your New Python Version
+### Windows
 
-After installation, you have **multiple Python versions** side-by-side. Here's how to use them effectively:
+* Downloads the official Python installer (.exe)
+* Runs the installer interactively
+* Recommendation: Check "Add Python to PATH" during installation
 
+### Linux
+
+* Auto-detects and uses mise or pyenv if available
+* Falls back to system package managers (apt, yum, dnf)
+* May require `sudo` privileges for apt/yum/dnf
+* For Ubuntu/Debian: Uses deadsnakes PPA for latest versions
+* Recommendation: Install mise or pyenv for easier version management
+
+### macOS
+
+* Auto-detects and uses mise or pyenv if available
 ### Check Your Setup
 
-```bash
-# Your system Python (unchanged)
-python3 --version          # Shows: Python 3.10.x
+```bash9 or higher
+* Internet connection
+* Admin/sudo privileges (for some system package manager operations)
+* Optional: textual package for TUI mode (`pip install textual`)
 
-# Your new Python (side-by-side)
-python3.12 --version       # Shows: Python 3.12.x
+## Dependencies
 
-# See all installed versions
-ls /usr/bin/python* | grep -E 'python[0-9]'
-```
+### Core Dependencies (automatically installed)
+* `requests` * HTTP library
+* `beautifulsoup4` * HTML parsing
+* `packaging` * Version comparison
+* `click` * CLI framework
 
-### Best Practice: Use Virtual Environments (Recommended)
+### Optional Dependencies
+* `textual` * Terminal UI framework (for `pyvm tui` command)
 
-This is the safest and most flexible approach:
+## Command Reference
 
-```bash
-# Create project with new Python
-python3.12 -m venv myproject
-source myproject/bin/activate
+| Command | Description |
+|---------|-------------|
+| `pyvm` | Check Python version (default) |
+| `pyvm check` | Check Python version |
+| `pyvm tui` | Launch interactive TUI (NEW) |
+| `pyvm list` | List available Python versions (NEW) |
+| `pyvm list --all` | Show all versions including patches (NEW) |
+| `pyvm install <version>` | Install specific Python version (NEW) |
+| `pyvm install <version> *y` | Install without confirmation (NEW) |
+| `pyvm update` | Update Python to latest version |
+| `pyvm update --version 3.11.5` | Update to a specific Python version |
+| `pyvm update --auto` | Update without confirmation |
+| `pyvm info` | Show system information |
+| `pyvm --version` | Show tool version |
+| `pyvm --help` | Show help message |
+
+### TUI Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| **Tab** / **Shift+Tab** | Switch between panels |
+| **Arrow Keys** | Navigate within panel |
+| **Enter** | Install selected version |
+| **1** / **2** | Jump to Installed / Available panel |
+| **U** | Update to latest Python |
+| **R** | Refresh data |
+| **T** | Toggle theme (dark/light) |
+| **?** | Show help |
+| **Q** | Quit
 
 # Now you're using the new Python in this project
 python --version           # Shows: Python 3.12.x
@@ -330,59 +480,11 @@ py --list
 #      python=3.14
 ```
 
-## How It Works
-
-### Windows
-
-* Downloads the official Python installer (.exe)
-* Runs the installer interactively
-* **Recommendation**: Check "Add Python to PATH" during installation
-
-### Linux
-
-* Uses system package managers (apt, yum, dnf)
-* May require `sudo` privileges
-* For Ubuntu/Debian: Uses deadsnakes PPA for latest versions
-* **Alternative**: Install pyenv for easier version management
-
-### macOS
-
-* Uses Homebrew if available
-* Falls back to official installer download link
-* Run `brew install python@3.x` for Homebrew installation
-
-## Requirements
-
-* Python 3.7 or higher
-* Internet connection
-* Admin/sudo privileges (for updates on some systems)
-
-## Dependencies
-
-* `requests` – HTTP library
-* `beautifulsoup4` – HTML parsing
-* `packaging` – Version comparison
-* `click` – CLI framework
-
-## Command Reference
-
-| Command | Description |
-|---------|-------------|
-| `pyvm` | Check Python version (default) |
-| `pyvm check` | Check Python version |
-| `pyvm update` | Update Python to latest version |
-| `pyvm update --version 3.11.5` | Update to a specific Python version |
-| `pyvm update --auto` | Update without confirmation |
-| `pyvm update --version 3.11.5 --auto` | Update to specific version without confirmation |
-| `pyvm info` | Show system information |
-| `pyvm --version` | Show tool version |
-| `pyvm --help` | Show help message |
-
 ## Exit Codes
 
-* `0` – Success or up-to-date
-* `1` – Update available or error occurred
-* `130` – Operation cancelled by user (Ctrl+C)
+* `0` * Success or up-to-date
+* `1` * Update available or error occurred
+* `130` * Operation cancelled by user (Ctrl+C)
 
 ## Troubleshooting
 
@@ -421,7 +523,7 @@ pip install pyvm-updater
 
 **Option 4: Override (NOT recommended)**
 ```bash
-pip install --break-system-packages pyvm-updater  # ⚠️ Not recommended
+pip install --break-system-packages pyvm-updater  # Not recommended
 ```
 
 ### "pyvm: command not found"
