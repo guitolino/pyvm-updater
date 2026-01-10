@@ -9,7 +9,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="pyvm-updater",
-    version="2.0.0",
+    version="2.0.1",
     author="Shreyas Mene",
     author_email="shreyasmene06@gmail.com",
     description="Cross-platform Python version checker and installer (does NOT modify system defaults)",
@@ -39,11 +39,9 @@ setup(
         "beautifulsoup4>=4.9.0",
         "packaging>=20.0",
         "click>=8.0.0",
+        "textual>=0.40.0",
     ],
     extras_require={
-        "tui": [
-            "textual>=0.40.0",
-        ],
         "dev": [
             "pytest>=6.0",
             "pytest-cov>=2.0",

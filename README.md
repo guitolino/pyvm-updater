@@ -2,7 +2,7 @@
 
 A cross-platform CLI tool with an interactive TUI to check and install Python versions side-by-side with your existing installation.
 
-## What's New in v2.0.0
+## What's New in v2.0.1
 
 **Complete TUI Redesign!** The interactive terminal interface has been completely overhauled:
 

@@ -905,7 +905,7 @@ def show_python_usage_instructions(version_str: str, os_name: str):
 def cli(ctx, version):
     """Python Version Manager - Check and install Python (does NOT modify system defaults)"""
     if version:
-        click.echo("Python Version Manager v1.2.3")
+        click.echo("Python Version Manager v2.0.1")
         ctx.exit()
     
     if ctx.invoked_subcommand is None:
