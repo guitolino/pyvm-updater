@@ -6,7 +6,7 @@ A clean terminal user interface for managing Python versions
 
 import asyncio
 import sys
-from typing import Optional
+from typing import Any, Optional
 
 try:
     from textual import work
@@ -76,10 +76,12 @@ class InstalledList(ListView):
     ]
 
     def action_focus_next_panel(self) -> None:
-        self.screen.focus_next_panel()
+        if hasattr(self.screen, "focus_next_panel"):
+            self.screen.focus_next_panel()  # type: ignore[attr-defined]
 
     def action_focus_prev_panel(self) -> None:
-        self.screen.focus_prev_panel()
+        if hasattr(self.screen, "focus_prev_panel"):
+            self.screen.focus_prev_panel()  # type: ignore[attr-defined]
 
 
 class AvailableList(ListView):
@@ -92,15 +94,18 @@ class AvailableList(ListView):
     ]
 
     def action_focus_next_panel(self) -> None:
-        self.screen.focus_next_panel()
+        if hasattr(self.screen, "focus_next_panel"):
+            self.screen.focus_next_panel()  # type: ignore[attr-defined]
 
     def action_focus_prev_panel(self) -> None:
-        self.screen.focus_prev_panel()
+        if hasattr(self.screen, "focus_prev_panel"):
+            self.screen.focus_prev_panel()  # type: ignore[attr-defined]
 
     def action_install_selected(self) -> None:
         if self.highlighted_child and isinstance(self.highlighted_child, VersionItem):
             version = self.highlighted_child.version
-            self.screen.start_install(version)
+            if hasattr(self.screen, "start_install"):
+                self.screen.start_install(version)  # type: ignore[attr-defined]
 
 
 class MainScreen(Screen):
@@ -330,7 +335,7 @@ class MainScreen(Screen):
             elif focused.id == "available-list":
                 self.query_one("#available-title").add_class("panel-title-focused")
 
-    def on_focus(self, event) -> None:
+    def on_focus(self, event: Any) -> None:
         self._update_panel_highlights()
 
     def action_focus_installed(self) -> None:

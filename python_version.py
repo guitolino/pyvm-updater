@@ -843,7 +843,7 @@ def check_python_version(silent: bool = False) -> tuple[str, Optional[str], bool
         return local_ver, latest_ver, False
 
 
-def show_python_usage_instructions(version_str: str, os_name: str):
+def show_python_usage_instructions(version_str: str, os_name: str) -> None:
     """
     Show user how to use the newly installed Python version.
     Does NOT modify system defaults - just provides instructions.
