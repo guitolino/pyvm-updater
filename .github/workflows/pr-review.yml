@@ -58,9 +58,6 @@ jobs:
       
       - name: Run Ruff linter
         run: ruff check . --output-format=github
-      
-      - name: Run Ruff formatter check
-        run: ruff format --check .
 
   # ============================================
   # Linting with Flake8

@@ -452,9 +452,9 @@ class MainScreen(Screen):
         success = False
 
         def do_installation():
-            print(f"\n{'='*50}")
+            print(f"\n{'=' * 50}")
             print(f"Installing Python {version}")
-            print(f"{'='*50}\n")
+            print(f"{'=' * 50}\n")
 
             if os_name == "windows":
                 return update_python_windows(version)
@@ -470,12 +470,12 @@ class MainScreen(Screen):
             # Suspend TUI, run installation, then resume
             with self.app.suspend():
                 success = do_installation()
-                print(f"\n{'='*50}")
+                print(f"\n{'=' * 50}")
                 if success:
                     print("Installation complete!")
                 else:
                     print("Installation may have had issues.")
-                print(f"{'='*50}")
+                print(f"{'=' * 50}")
                 print("\nPress Enter to return to TUI...")
                 try:
                     input()
