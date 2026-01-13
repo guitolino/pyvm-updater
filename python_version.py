@@ -12,6 +12,7 @@ Requirements:
 Note: Dependencies are automatically installed via setup.py during CLI installation.
 """
 
+import json
 import os
 import platform
 import re
@@ -20,6 +21,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 from typing import Optional
 
 try:
@@ -41,6 +43,53 @@ MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
 DOWNLOAD_TIMEOUT = 120  # seconds
 REQUEST_TIMEOUT = 15  # seconds
+HISTORY_FILE = Path.home() / ".pyvm_history.json"
+
+
+class HistoryManager:
+    """Manages the history of Python version installations and updates"""
+
+    @staticmethod
+    def save_history(action: str, version: str):
+        """Save an action and version to the history file"""
+        history = HistoryManager.get_history()
+        entry = {
+            "timestamp": time.time(),
+            "action": action,
+            "version": version,
+            "previous_version": platform.python_version(),
+        }
+        history.append(entry)
+
+        # Keep only the last 10 entries
+        history = history[-10:]
+
+        try:
+            HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(HISTORY_FILE, "w") as f:
+                json.dump(history, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Could not save history: {e}")
+
+    @staticmethod
+    def get_history() -> list[dict]:
+        """Load history from the history file"""
+        if not HISTORY_FILE.exists():
+            return []
+        try:
+            with open(HISTORY_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return []
+
+    @staticmethod
+    def get_last_action() -> Optional[dict]:
+        """Get the last successful installation/update action"""
+        history = HistoryManager.get_history()
+        if not history:
+            return None
+        return history[-1]
+
 
 
 def get_os_info():
@@ -1220,6 +1269,63 @@ def cli(ctx, version):
 
 
 @cli.command()
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+def rollback(yes):
+    """Rollback to the previous Python version state"""
+    try:
+        last_action = HistoryManager.get_last_action()
+        if not last_action:
+            click.echo("No rollback history found.")
+            sys.exit(0)
+
+        version = last_action["version"]
+        action = last_action["action"]
+        prev_version = last_action.get("previous_version", "unknown")
+
+        click.echo(f"Last action: {action} Python {version}")
+        click.echo(f"Previous version was: {prev_version}")
+
+        if not yes:
+            if not click.confirm(f"\nDo you want to rollback by removing Python {version}?"):
+                click.echo("Rollback cancelled.")
+                sys.exit(0)
+
+        os_name, _ = get_os_info()
+        success = False
+        if os_name == "windows":
+            success = remove_python_windows(version)
+        elif os_name == "linux":
+            success = remove_python_linux(version)
+        elif os_name == "darwin":
+            success = remove_python_macos(version)
+        else:
+            click.echo(f"Unsupported operating system: {os_name}")
+            sys.exit(1)
+
+        if success:
+            click.echo(f"\nSuccessfully rolled back: Python {version} removed.")
+            # Remove the last entry from history since it's rolled back
+            history = HistoryManager.get_history()
+            if history:
+                history.pop()
+                try:
+                    with open(HISTORY_FILE, "w") as f:
+                        json.dump(history, f, indent=2)
+                except Exception:
+                    pass
+        else:
+            click.echo("\nRollback encountered issues.")
+            sys.exit(1)
+
+    except KeyboardInterrupt:
+        click.echo("\n\nOperation cancelled by user.")
+        sys.exit(130)
+    except Exception as e:
+        click.echo(f"\nError: {e}")
+        sys.exit(1)
+
+
+@cli.command()
 def check():
     """Check current Python version against latest stable release"""
     try:
@@ -1286,6 +1392,7 @@ def install(version, yes):
             sys.exit(1)
 
         if success:
+            HistoryManager.save_history("install", version)
             show_python_usage_instructions(version, os_name)
         else:
             click.echo("\nInstallation encountered issues. Check messages above.")
@@ -1492,6 +1599,7 @@ def update(auto, target_version):
             sys.exit(1)
 
         if success:
+            HistoryManager.save_history("update", install_version)
             # Show usage instructions (safe, no system modifications)
             show_python_usage_instructions(install_version, os_name)
         else:
