@@ -28,7 +28,10 @@ from python_version import (
     get_os_info,
     update_python_linux,
     update_python_macos,
-    update_python_windows,
+    remove_python_windows,
+    remove_python_linux,
+    remove_python_macos,
+    validate_version_string,
 )
 
 
@@ -73,6 +76,8 @@ class InstalledList(ListView):
     BINDINGS = [
         Binding("tab", "focus_next_panel", "Next Panel", show=False),
         Binding("shift+tab", "focus_prev_panel", "Prev Panel", show=False),
+        Binding("x", "remove_selected", "Remove", show=True),
+        Binding("delete", "remove_selected", "Remove", show=False),
     ]
 
     def action_focus_next_panel(self) -> None:
@@ -82,6 +87,26 @@ class InstalledList(ListView):
     def action_focus_prev_panel(self) -> None:
         if hasattr(self.screen, "focus_prev_panel"):
             self.screen.focus_prev_panel()  # type: ignore[attr-defined]
+
+    def action_remove_selected(self) -> None:
+        if self.highlighted_child and isinstance(self.highlighted_child, VersionItem):
+            version = self.highlighted_child.version
+            
+            # Prevent removing current python (major.minor check)
+            local_ver = platform.python_version()
+            local_parts = local_ver.split('.')
+            version_parts = version.split('.')
+            
+            is_same_major_minor = False
+            if len(local_parts) >= 2 and len(version_parts) >= 2:
+                if local_parts[0] == version_parts[0] and local_parts[1] == version_parts[1]:
+                    is_same_major_minor = True
+
+            if self.highlighted_child.is_current or is_same_major_minor:
+                self.app.bell()
+                self.screen.query_one("#status-bar").set_message(f"Cannot remove Python {version} (matches running major.minor)", "red")
+                return
+            self.screen.start_remove(version)
 
 
 class AvailableList(ListView):
@@ -261,8 +286,8 @@ class MainScreen(Screen):
                 yield Label("Loading...")
 
             yield Static(
-                "[dim]Tab: switch panels | Arrow keys: navigate | Enter: install selected | R: refresh | U: update | Q: quit[/dim]",
-                id="hint-bar",
+                "[dim]Tab: switch panels | Arrow keys: navigate | Enter: install | X: remove | R: refresh | U: update | Q: quit[/dim]",
+                id="hint-bar"
             )
 
             with Horizontal(id="content-area"):
@@ -444,6 +469,10 @@ class MainScreen(Screen):
         """Start installing a version (called from AvailableList)"""
         self.run_install_with_suspend(version)
 
+    def start_remove(self, version: str) -> None:
+        """Start removing a version (called from InstalledList)"""
+        self.run_remove_with_suspend(version)
+
     def run_install_with_suspend(self, version: str) -> None:
         """Run installation with TUI suspended so terminal output is visible"""
         from textual.app import SuspendNotSupported
@@ -494,6 +523,66 @@ class MainScreen(Screen):
             self.app.push_screen(SuccessScreen(version, os_name))
         else:
             status_bar.set_message("Installation had issues.", "yellow")
+
+        # Refresh to show updated installed versions
+        self.refresh_all()
+
+    def run_remove_with_suspend(self, version: str) -> None:
+        """Run removal with TUI suspended so terminal output is visible"""
+        from textual.app import SuspendNotSupported
+        
+        os_name, _ = get_os_info()
+        success = False
+
+        def do_removal():
+            print(f"\n{'='*50}")
+            print(f"Removing Python {version}")
+            print(f"{'='*50}\n")
+
+            if os_name == 'windows':
+                return remove_python_windows(version)
+            elif os_name == 'linux':
+                return remove_python_linux(version)
+            elif os_name == 'darwin':
+                return remove_python_macos(version)
+            else:
+                print(f"Unsupported OS: {os_name}")
+                return False
+
+        try:
+            # Suspend TUI, run removal, then resume
+            with self.app.suspend():
+                # Add confirmation in suspended mode for safety
+                print(f"Are you sure you want to remove Python {version}? (y/n): ", end="", flush=True)
+                confirm = input().lower()
+                if confirm == 'y':
+                    success = do_removal()
+                    print(f"\n{'='*50}")
+                    if success:
+                        print(f"Removal complete!")
+                    else:
+                        print(f"Removal may have had issues.")
+                    print(f"{'='*50}")
+                else:
+                    print("Removal cancelled.")
+                
+                print("\nPress Enter to return to TUI...")
+                try:
+                    input()
+                except EOFError:
+                    pass
+        except SuspendNotSupported:
+            # Fallback
+            status_bar = self.query_one("#status-bar", StatusBar)
+            status_bar.set_message(f"Removing Python {version}... (check terminal)", "yellow")
+            success = do_removal()
+
+        # Update status and refresh after resuming
+        status_bar = self.query_one("#status-bar", StatusBar)
+        if success:
+            status_bar.set_message(f"Python {version} removed successfully!", "green")
+        else:
+            status_bar.set_message("Removal had issues or was cancelled.", "yellow")
 
         # Refresh to show updated installed versions
         self.refresh_all()
@@ -656,6 +745,7 @@ class HelpScreen(Screen):
 
 [bold]Actions[/bold]
   Enter     Install selected version
+  X         Remove selected version
   R         Refresh data
   U         Update to latest version
   ?         This help
