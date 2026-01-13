@@ -97,7 +97,7 @@ def get_installed_python_versions() -> list[dict]:
                 for line in result.stdout.strip().split("\n"):
                     # Format: " -V:3.12 *" or " -3.12-64"
                     line = line.strip()
-                    match = re.search(r'-(?:V:)?(\d+\.\d+)', line)
+                    match = re.search(r"-(?:V:)?(\d+\.\d+)", line)
                     if match:
                         ver = match.group(1)
                         is_default = "*" in line
@@ -792,11 +792,11 @@ def update_python_macos(version_str: str) -> bool:
 def is_python_version_installed(version_str: str) -> bool:
     """Check if a specific Python version is installed on the system"""
     installed = get_installed_python_versions()
-    
+
     # 1. Try exact match
     if any(v["version"] == version_str for v in installed):
         return True
-        
+
     # 2. Try major.minor match (especially for Windows where 'py --list' returns only major.minor)
     try:
         parts = version_str.split(".")
@@ -805,7 +805,7 @@ def is_python_version_installed(version_str: str) -> bool:
             return any(v["version"] == major_minor for v in installed)
     except (ValueError, IndexError):
         pass
-        
+
     return False
 
 
@@ -828,7 +828,9 @@ def remove_python_windows(version_str: str) -> bool:
 
     if len(current_parts) >= 2 and len(target_parts) >= 2:
         if current_parts[0] == target_parts[0] and current_parts[1] == target_parts[1]:
-            print(f"Error: Cannot remove Python {version_str} as it matches the currently running major.minor version ({current_ver}).")
+            print(
+                f"Error: Cannot remove Python {version_str} as it matches the currently running major.minor version ({current_ver})."
+            )
             return False
 
     # Try to find the installer in temp directory
@@ -848,17 +850,13 @@ def remove_python_windows(version_str: str) -> bool:
         # MS Store IDs usually follow: PythonSoftwareFoundation.Python.3.X
         # We try both the generic name and potential MS Store ID
         major_minor = ".".join(version_str.split(".")[:2])
-        potential_ids = [
-            f"Python.Python.{major_minor}",
-            f"PythonSoftwareFoundation.Python.{major_minor}"
-        ]
-        
+        potential_ids = [f"Python.Python.{major_minor}", f"PythonSoftwareFoundation.Python.{major_minor}"]
+
         for pkg_id in potential_ids:
             try:
                 # --silent --accept-source-agreements --accept-package-agreements
                 result = subprocess.run(
-                    ["winget", "uninstall", "--id", pkg_id, "--silent"],
-                    capture_output=True, text=True, check=False
+                    ["winget", "uninstall", "--id", pkg_id, "--silent"], capture_output=True, text=True, check=False
                 )
                 if result.returncode == 0:
                     print(f"[OK] Python {version_str} removed via winget ({pkg_id})")
@@ -871,24 +869,20 @@ def remove_python_windows(version_str: str) -> bool:
     print(f"Checking for Microsoft Store installation (Python {major_minor})...")
     ps_check = (
         f'Get-AppxPackage | Where-Object {{$_.Name -like "*Python.{major_minor}*"}} | '
-        'Select-Object -ExpandProperty PackageFullName'
+        "Select-Object -ExpandProperty PackageFullName"
     )
     try:
-        check_result = subprocess.run(
-            ["powershell", "-Command", ps_check],
-            capture_output=True, text=True, check=False
-        )
+        check_result = subprocess.run(["powershell", "-Command", ps_check], capture_output=True, text=True, check=False)
         package_fullname = check_result.stdout.strip()
-        
+
         if package_fullname:
             print(f"Found Microsoft Store package: {package_fullname}")
             print("Attempting to remove via PowerShell...")
             remove_command = f'Remove-AppxPackage -Package "{package_fullname}"'
             remove_result = subprocess.run(
-                ["powershell", "-Command", remove_command],
-                capture_output=True, text=True, check=False
+                ["powershell", "-Command", remove_command], capture_output=True, text=True, check=False
             )
-            
+
             if remove_result.returncode == 0:
                 print(f"[OK] Python {version_str} (MS Store) removed successfully!")
                 return True
@@ -901,7 +895,7 @@ def remove_python_windows(version_str: str) -> bool:
     if not os.path.exists(installer_path):
         print("\nInstaller not found in temporary directory.")
         print("Attempting to download the matching installer for removal...")
-        
+
         # Detect architecture
         machine = platform.machine().lower()
         if machine in ["amd64", "x86_64"]:
@@ -910,10 +904,10 @@ def remove_python_windows(version_str: str) -> bool:
             arch = "arm64"
         else:
             arch = "win32"
-            
+
         installer_url = f"https://www.python.org/ftp/python/{version_str}/python-{version_str}-{arch}.exe"
         print(f"Downloading from: {installer_url}")
-        
+
         if not download_file(installer_url, installer_path):
             print("Failed to download installer.")
             print(fallback_msg)
@@ -922,15 +916,15 @@ def remove_python_windows(version_str: str) -> bool:
     print(f"Running uninstaller: {installer_path} /uninstall")
     try:
         # Run uninstaller (interactive)
-        result = subprocess.run([installer_path, "/uninstall"], check=False)
-        
+        result = subprocess.run([installer_path, "/uninstall"], check=False, capture_output=True, text=True)
+
         # Cleanup downloaded installer after use
         try:
             if os.path.exists(installer_path):
                 os.remove(installer_path)
         except OSError:
             pass
-            
+
         if result.returncode == 0:
             print(f"\n[OK] Python {version_str} removed successfully!")
             return True
@@ -990,7 +984,12 @@ def remove_python_linux(version_str: str) -> bool:
     # Try mise
     if shutil.which("mise"):
         try:
-            result = subprocess.run(["mise", "uninstall", f"python@{version_str}"], check=False)
+            result = subprocess.run(
+                ["mise", "uninstall", f"python@{version_str}"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
             if result.returncode == 0:
                 print(f"[OK] Python {version_str} uninstalled via mise.")
                 return True
@@ -1000,7 +999,12 @@ def remove_python_linux(version_str: str) -> bool:
     # Try pyenv
     if shutil.which("pyenv"):
         try:
-            result = subprocess.run(["pyenv", "uninstall", "-f", version_str], check=False)
+            result = subprocess.run(
+                ["pyenv", "uninstall", "-f", version_str],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
             if result.returncode == 0:
                 print(f"[OK] Python {version_str} uninstalled via pyenv.")
                 return True
