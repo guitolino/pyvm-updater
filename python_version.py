@@ -21,8 +21,11 @@ import subprocess
 import sys
 import tempfile
 import time
+import hashlib
 from pathlib import Path
 from typing import Any, cast
+from typing import Optional
+
 
 try:
     import click
@@ -89,6 +92,47 @@ class HistoryManager:
         if not history:
             return None
         return history[-1]
+
+def calculate_sha256(file_path: str) -> str:
+    """Calculate SHA256 checksum of a file"""
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def fetch_remote_sha256(checksum_url: str) -> Optional[str]:
+    """Fetch SHA256 checksum from python.org"""
+    try:
+        response = requests.get(checksum_url, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        # Format: "<hash>  filename"
+        return response.text.strip().split()[0]
+    except Exception as e:
+        click.echo(f"❌ Failed to fetch checksum: {e}")
+        return None
+
+
+def verify_file_checksum(file_path: str, checksum_url: str) -> bool:
+    """Verify downloaded file against python.org SHA256"""
+    click.echo("🔐 Verifying file integrity (SHA256)...")
+
+    expected = fetch_remote_sha256(checksum_url)
+    if not expected:
+        click.echo("❌ Could not retrieve official checksum")
+        return False
+
+    actual = calculate_sha256(file_path)
+
+    if actual.lower() != expected.lower():
+        click.echo("❌ Checksum mismatch!")
+        click.echo(f"Expected: {expected}")
+        click.echo(f"Actual:   {actual}")
+        return False
+
+    click.echo("✅ Integrity verified")
+    return True
 
 
 def get_os_info():
@@ -554,7 +598,15 @@ def update_python_windows(version_str: str) -> bool:
     print(f"Downloading from: {installer_url}")
     if not download_file(installer_url, installer_path):
         return False
+    checksum_url = installer_url + ".sha256"
 
+    if not verify_file_checksum(installer_path, checksum_url):
+        click.echo("❌ Aborting installation due to integrity check failure")
+        try:
+            os.remove(installer_path)
+        except OSError:
+            pass
+        return False
     print("\n⚠️  Starting installer...")
     print("Please follow the installer prompts.")
     print("Recommendation: Check 'Add Python to PATH'")
